@@ -1,4 +1,5 @@
 // Copyright 2022 Ahmet Alp Balkan
+// Portions Copyright 2026 bigsasi
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +26,7 @@ import (
 //go:embed assets/tray_icon.ico
 var icon []byte
 
-const repo = "https://github.com/ahmetb/RectangleWin"
+const repo = "https://github.com/bigsasi/RectangleWin"
 
 func initTray() {
 	systray.Register(onReady, onExit)
@@ -34,16 +35,20 @@ func initTray() {
 func onReady() {
 	systray.SetIcon(icon)
 	systray.SetTitle("RectangleWin")
-	systray.SetTooltip("RectangleWin")
+	systray.SetTooltip("RectangleWin - Window Manager")
 
-	autorun, err := AutoRunEnabled()
-	if err != nil {
-		panic(err)
-	}
-
-	mRepo := systray.AddMenuItem("Documentation", "")
+	mSettings := systray.AddMenuItem("Settings...", "Configure keybindings and preferences")
 	go func() {
-		for range mRepo.ClickedCh {
+		for range mSettings.ClickedCh {
+			ShowSettingsWindow()
+		}
+	}()
+
+	systray.AddSeparator()
+
+	mDocs := systray.AddMenuItem("Documentation", "View documentation and keyboard shortcuts guide")
+	go func() {
+		for range mDocs.ClickedCh {
 			if err := w32.ShellExecute(0, "open", repo, "", "", w32.SW_SHOWNORMAL); err != nil {
 				fmt.Printf("failed to launch browser: (%d), %v\n", w32.GetLastError(), err)
 			}
@@ -52,33 +57,7 @@ func onReady() {
 
 	systray.AddSeparator()
 
-	mAutoRun := systray.AddMenuItemCheckbox("Run on startup", "", autorun)
-	go func() {
-		for range mAutoRun.ClickedCh {
-			if mAutoRun.Checked() {
-				if err := AutoRunDisable(); err != nil {
-					mAutoRun.SetTitle(err.Error())
-					fmt.Printf("warn: autorun disable: %v\n", err)
-					continue
-				}
-				fmt.Println("disabled autorun")
-				mAutoRun.Uncheck()
-			} else {
-				if err := AutoRunEnable(); err != nil {
-					mAutoRun.SetTitle(err.Error())
-					fmt.Printf("warn: autorun enable: %v\n", err)
-					continue
-				}
-				fmt.Println("enabled autorun")
-				mAutoRun.Check()
-			}
-
-		}
-	}()
-
-	systray.AddSeparator()
-
-	mQuit := systray.AddMenuItem("Quit", "")
+	mQuit := systray.AddMenuItem("Quit RectangleWin", "Quit application")
 	go func() {
 		<-mQuit.ClickedCh
 		fmt.Println("clicked Quit")

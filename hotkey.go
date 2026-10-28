@@ -1,4 +1,5 @@
 // Copyright 2022 Ahmet Alp Balkan
+// Portions Copyright 2026 bigsasi
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +18,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/ahmetb/RectangleWin/w32ex"
+	"github.com/bigsasi/RectangleWin/w32ex"
 	"github.com/gonutz/w32/v2"
 )
 
 var (
 	hotkeyRegistrations = make(map[int]*HotKey)
+	showSettingsMsgID   uint32
 )
 
 type HotKey struct {
@@ -33,36 +35,35 @@ type HotKey struct {
 func (h HotKey) String() string { return fmt.Sprintf("mod=0x%x,vk=%d", h.mod, h.vk) }
 
 func (h HotKey) Describe() string {
-	var out string
-	if h.mod&MOD_WIN == MOD_WIN {
-		out += modKeyNames[MOD_WIN] + " + "
-	}
-	if h.mod&MOD_CONTROL == MOD_CONTROL {
-		out += modKeyNames[MOD_CONTROL] + " + "
-	}
-	if h.mod&MOD_ALT == MOD_ALT {
-		out += modKeyNames[MOD_ALT] + " + "
-	}
-	if h.mod&MOD_SHIFT == MOD_SHIFT {
-		out += modKeyNames[MOD_SHIFT] + " + "
-	}
-	if v, ok := keyNames[h.vk]; ok {
-		out += v
-	} else {
-		out += fmt.Sprintf("UNKNOWN KEY(0x%x)", h.vk)
-	}
-	return out
+	return FormatKeyCombo(h.mod, h.vk)
 }
 
 func RegisterHotKey(h HotKey) bool {
 	if _, ok := hotkeyRegistrations[h.id]; ok {
-		panic("hotkey id already registered") // TODO ok for now
+		w32ex.UnregisterHotKey(0, h.id)
+		delete(hotkeyRegistrations, h.id)
 	}
 	ok := w32ex.RegisterHotKey(0, h.id, h.mod, h.vk)
 	if ok {
 		hotkeyRegistrations[h.id] = &h
 	}
 	return ok
+}
+
+func UnregisterHotKey(id int) bool {
+	if _, ok := hotkeyRegistrations[id]; !ok {
+		return false
+	}
+	ok := w32ex.UnregisterHotKey(0, id)
+	delete(hotkeyRegistrations, id)
+	return ok
+}
+
+func UnregisterAllHotKeys() {
+	for id := range hotkeyRegistrations {
+		w32ex.UnregisterHotKey(0, id)
+	}
+	hotkeyRegistrations = make(map[int]*HotKey)
 }
 
 func msgLoop() error {
@@ -83,6 +84,12 @@ func msgLoop() error {
 			}
 			fmt.Printf("trace: hotkey id=%d (%s)\n", m.WParam, h)
 			h.callback()
+		} else if m.Message == WM_RELOAD_HOTKEYS {
+			fmt.Println("trace: received WM_RELOAD_HOTKEYS on main thread")
+			reloadConfigInternal()
+		} else if showSettingsMsgID != 0 && m.Message == showSettingsMsgID {
+			fmt.Println("trace: received show settings signal from secondary instance")
+			ShowSettingsWindow()
 		} else {
 			fmt.Printf("unhandled message received:0x%x %d\n", m.Message, m.Message)
 			w32.TranslateMessage(&m)

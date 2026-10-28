@@ -1,77 +1,91 @@
 # RectangleWin
 
-A minimalistic Windows rewrite of macOS
-[Rectangle.app](https://rectangleapp.com)/[Spectacle.app](https://www.spectacleapp.com/).
-([Why?](#why))
+A lightweight, keyboard-driven window snapping and management tool for Windows, inspired by macOS [Rectangle.app](https://rectangleapp.com) and [Spectacle.app](https://www.spectacleapp.com).
 
-A hotkey-oriented window snapping and resizing tool for Windows.
-
-This animation illustrates how RectangleWin helps me move windows to edges
-and corners (and cycle through half, one-thirds or two thirds width or height)
-only using hotkeys:
+Move and snap windows to edges, corners, halves, and thirds using intuitive hotkeys or customize every action through a modern Windows 11 Fluent interface.
 
 ![RectangleWin demo](./assets/RectangleWin-demo.gif)
 
-## Install
+## Features
 
-1. Go to [Releases](https://github.com/ahmetb/RectangleWin/releases) and
-   download the suitable binary for your architecture (typically x64).
+- **Edge & Half Snapping**: Left, right, top, and bottom snapping with automatic cycling between ½, ⅔, and ⅓ sizes.
+- **Corner Quadrants**: Precise snapping to top-left, top-right, bottom-left, and bottom-right corners.
+- **Thirds & Two-Thirds**: Direct shortcuts for vertical one-third and two-thirds splits.
+- **Window Sizing**: Maximize, Almost Maximize (with customizable margin padding), Center, Restore, and Step Resize increments.
+- **Multi-Monitor Display Moving**: Seamlessly move windows across displays preserving relative coordinates.
+- **Always on Top**: Pin any window above all other windows.
+- **Modern Fluent Settings UI**:
+  - Dark and Light mode theme support (`prefers-color-scheme`).
+  - Interactive visual snap diagrams for all 23 actions.
+  - Modifier pill toggles (`[Win]`, `[Alt]`, `[Ctrl]`, `[Shift]`), direct key typing, and interactive key recorder.
+  - Instant duplicate hotkey validation.
+  - Global cross-tab search filter.
+  - "Launch on Windows Startup" switch with live registry synchronization.
+- **Single-Instance Enforcement**: Named Win32 mutex ensures only one process runs; subsequent launches bring Preferences to the front.
+- **Pure Go**: Zero external C runtime or GCC requirements; built entirely with Go and native Windows Win32 APIs.
 
-2. Launch the `.exe` file. Now the program icon should be visible on system
-   tray!
+---
 
-3. Click on the icon and mark as "Run on startup" to make sure you don't have
-   to run it every time you reboot your PC.
+## Default Keyboard Bindings
 
-## Keyboard Bindings
+### Snap to Edges (½, ⅔, ⅓)
+* <kbd>Win</kbd> + <kbd>Alt</kbd> + <kbd>&larr;</kbd> / <kbd>&rarr;</kbd> / <kbd>&uarr;</kbd> / <kbd>&darr;</kbd>
+* Pressing repeatedly cycles through ½, ⅔, and ⅓ sizes.
 
-- **Snap to edges** (left/right/top/bottom ½, ⅔, ⅓):
-  - <kbd>Win</kbd> + <kbd>Alt</kbd> + <kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd>
-  - Press multiple times to alternate between ½, ⅔ and ⅓.
+### Corner Quadrants
+* **Top-Left**: <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&larr;</kbd>
+* **Top-Right**: <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&uarr;</kbd>
+* **Bottom-Left**: <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&darr;</kbd>
+* **Bottom-Right**: <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&rarr;</kbd>
 
-- **Corner snapping**
-  - <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&larr;</kbd>: top-left ½, ⅔ and ⅓
-  - <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&uarr;</kbd>: top-right ½, ⅔ and ⅓
-  - <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&darr;</kbd>: bottom-left ½, ⅔ and ⅓
-  - <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>&rarr;</kbd>: bottom-right ½, ⅔ and ⅓
+### Window Management & Monitors
+* **Maximize**: <kbd>Win</kbd> + <kbd>Shift</kbd> + <kbd>F</kbd>
+* **Almost Maximize**: <kbd>Win</kbd> + <kbd>Alt</kbd> + <kbd>F</kbd>
+* **Center Window**: <kbd>Win</kbd> + <kbd>Alt</kbd> + <kbd>C</kbd>
+* **Always on Top (Toggle)**: <kbd>Win</kbd> + <kbd>Alt</kbd> + <kbd>A</kbd>
+* **Next Monitor**: <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>PageUp</kbd>
+* **Previous Monitor**: <kbd>Win</kbd> + <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>PageDown</kbd>
 
-- **Center window** on the display: <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd>
+---
 
-- **Maximize window**: <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>
-  (Obsolete since Windows natively supports <kbd>Win</kbd>+<kbd>&uarr;</kbd>)
+## Customizing Keybindings & Preferences
 
-- **Always On Top (toggle)**: <kbd>Win</kbd>+<kbd>Alt</kbd>+<kbd>A</kbd>
+You can customize all shortcuts and behavior directly through the in-app **Preferences GUI**:
 
-## Why?
+1. Right-click the **RectangleWin** icon in your system tray and select **"Settings..."** (or simply launch `RectangleWin.exe` while it is already running).
+2. Browse through the tabs:
+   - **Halves & Corners**: Half-screen and corner quadrant snaps with visual diagrams.
+   - **Thirds & Sizing**: Thirds, maximize, almost-maximize margin, and step resizes.
+   - **Displays**: Multi-monitor jumping and always-on-top pinning.
+   - **Preferences**: System startup toggle and snapping behavior settings (subdivisions, margins, step resize).
+   - **About**: App version, feature overview, and project links.
+3. To change a keybinding:
+   - Click the modifier pills (`[Win]`, `[Alt]`, `[Ctrl]`, `[Shift]`) to toggle keys.
+   - Or click **"Record"** and press your combo.
+   - Click `✕` to clear or disable any shortcut.
+4. Click **"Save & Apply"** to validate and instantly activate your new keybindings without restarting.
 
-It seems that no window snapping utility for Windows is capable of letting
-user snap windows to edges or corners in {half, two-thirds, one-third} sizes
-using configurable **shortcut keys**, and center windows in a screen like
-Rectangle.app does, so I wrote this small utility for myself.
+---
 
-I've tried the native Windows shortcuts and PowerToys FancyZones and they
-are not supporting corners, alternating between half and one/two thirds, and
-are not offering enough hotkey support.
+## Development & Building
 
-## Roadmap
+Requires Go 1.22+:
 
-- Configurable shortcuts: I don't need these and it will likely require a pop-up
-  UI, so I will probably not get to this.
+```powershell
+# Run automated tests
+go test -v ./...
 
-## Development (Install from source)
-
-With Go 1.17+ installed, clone this repository and run:
-
-```sh
-go generate
-GOOS=windows go build -ldflags -H=windowsgui .
+# Build standalone Windows GUI binary
+go build -ldflags "-H=windowsgui" -o RectangleWin.exe .
 ```
 
-The `RectangleWin.exe` will be available in the same directory.
+---
 
-## License
+## License & Attribution
 
-This project is distributed as-is under the Apache 2.0 license.
-See [LICENSE](./LICENSE).
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](./LICENSE) and [NOTICE](./NOTICE) files for complete terms and third-party notices.
 
-If you see bugs, please open issues. I can't promise any fixes.
+* **Repository**: [github.com/bigsasi/RectangleWin](https://github.com/bigsasi/RectangleWin)
+* **Modernized & Maintained by**: [bigsasi](https://github.com/bigsasi)
+* **Originally created by**: [Ahmet Alp Balkan](https://github.com/ahmetb) (Copyright 2022, Apache 2.0)
+* **Inspired by**: [Rectangle for macOS](https://rectangleapp.com) by Ryan Hanson (MIT License)

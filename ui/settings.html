@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RectangleWin Preferences</title>
+  <style>
+    :root {
+      --bg: #f3f3f3;
+      --surface: #ffffff;
+      --surface-hover: #fafafa;
+      --surface-active: #f0f0f0;
+      --border: rgba(0, 0, 0, 0.08);
+      --border-strong: rgba(0, 0, 0, 0.16);
+      --text: #1a1a1a;
+      --text-secondary: #656565;
+      --accent: #0067b8;
+      --accent-hover: #005a9e;
+      --accent-active: #004d88;
+      --accent-text: #ffffff;
+      --pill-bg: #ececec;
+      --pill-active-bg: #0067b8;
+      --pill-active-text: #ffffff;
+      --danger: #c42b1c;
+      --success: #0f7b0f;
+      --radius: 8px;
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #202020;
+        --surface: #2b2b2b;
+        --surface-hover: #333333;
+        --surface-active: #3b3b3b;
+        --border: rgba(255, 255, 255, 0.08);
+        --border-strong: rgba(255, 255, 255, 0.16);
+        --text: #ffffff;
+        --text-secondary: #a2a2a2;
+        --accent: #0078d4;
+        --accent-hover: #198ae3;
+        --accent-active: #2997ee;
+        --accent-text: #ffffff;
+        --pill-bg: #383838;
+        --pill-active-bg: #0078d4;
+        --pill-active-text: #ffffff;
+        --danger: #e81123;
+        --success: #6ccb5f;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+
+    body {
+      font-family: var(--font-ui);
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    /* Header */
+    header {
+      padding: 16px 28px 12px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #1e222a, #14171d);
+      border: 1.5px solid rgba(255,255,255,0.25);
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 3px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+
+    .brand-icon-inner {
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(135deg, #00a4ff, #006ee6);
+      border-radius: 3px;
+    }
+
+    .brand-title h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+
+    .brand-title p {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .search-box {
+      position: relative;
+      width: 250px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 30px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12.5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      fill: var(--text-secondary);
+      pointer-events: none;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      padding: 8px 18px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius);
+      transition: all 0.15s;
+    }
+
+    .tab-btn:hover {
+      background: var(--surface-hover);
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    /* Content Area */
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 28px;
+    }
+
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tab-pane.active {
+      display: flex;
+    }
+
+    /* Action Card */
+    .action-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      gap: 16px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .action-card:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+    }
+
+    .action-card.recording {
+      border-color: var(--accent);
+      background: var(--surface-hover);
+      box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.25);
+    }
+
+    .action-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 250px;
+      flex: 1;
+    }
+
+    /* Snap preview diagram */
+    .snap-preview {
+      width: 32px;
+      height: 22px;
+      border-radius: 4px;
+      border: 1.5px solid var(--text-secondary);
+      opacity: 0.85;
+      background: transparent;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .snap-fill {
+      position: absolute;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* Fill variations */
+    .fill-left { top: 1px; left: 1px; bottom: 1px; width: 48%; }
+    .fill-right { top: 1px; right: 1px; bottom: 1px; width: 48%; }
+    .fill-top { top: 1px; left: 1px; right: 1px; height: 48%; }
+    .fill-bottom { bottom: 1px; left: 1px; right: 1px; height: 48%; }
+    .fill-top-left { top: 1px; left: 1px; width: 48%; height: 48%; }
+    .fill-top-right { top: 1px; right: 1px; width: 48%; height: 48%; }
+    .fill-bottom-left { bottom: 1px; left: 1px; width: 48%; height: 48%; }
+    .fill-bottom-right { bottom: 1px; right: 1px; width: 48%; height: 48%; }
+    .fill-max { inset: 1px; }
+    .fill-almost-max { inset: 2.5px; border-radius: 2px; }
+    .fill-center { top: 3px; bottom: 3px; left: 6px; right: 6px; border-radius: 2px; }
+    .fill-third-left { top: 1px; bottom: 1px; left: 1px; width: 31%; }
+    .fill-third-center { top: 1px; bottom: 1px; left: 34%; width: 31%; }
+    .fill-third-right { top: 1px; bottom: 1px; right: 1px; width: 31%; }
+    .fill-twothirds-left { top: 1px; bottom: 1px; left: 1px; width: 65%; }
+    .fill-twothirds-right { top: 1px; bottom: 1px; right: 1px; width: 65%; }
+    .fill-monitor { inset: 2px; display: flex; align-items: center; justify-content: center; background: none; }
+
+    .action-info h3 {
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    .action-info p {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    /* Shortcut editor controls */
+    .shortcut-editor {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .mod-pills {
+      display: flex;
+      gap: 3px;
+    }
+
+    .pill {
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border-strong);
+      background: var(--pill-bg);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .pill:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .pill.active {
+      background: var(--pill-active-bg);
+      color: var(--pill-active-text);
+      border-color: var(--pill-active-bg);
+    }
+
+    .plus-sep {
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 12px;
+      margin: 0 2px;
+    }
+
+    .key-input {
+      width: 76px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .key-input:focus {
+      border-color: var(--accent);
+      background: var(--surface);
+    }
+
+    .key-input::placeholder {
+      font-weight: 400;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+    }
+
+    .btn:active {
+      background: var(--surface-active);
+    }
+
+    .btn-record {
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 500;
+    }
+
+    .btn-record.active {
+      background: var(--accent);
+      color: var(--accent-text);
+      border-color: var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(0, 120, 212, 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(0, 120, 212, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 120, 212, 0); }
+    }
+
+    .btn-clear {
+      padding: 5px 9px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    .btn-clear:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--accent-text);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-primary:active {
+      background: var(--accent-active);
+    }
+
+    /* Preferences Section */
+    .pref-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .pref-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-secondary);
+      margin-bottom: 2px;
+    }
+
+    .pref-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pref-label h4 {
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    .pref-label p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+
+    .number-field {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .unit-label {
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .pref-input-number {
+      width: 75px;
+      padding: 5px 8px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 12.5px;
+      text-align: right;
+    }
+
+    /* Switch toggle */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 42px;
+      height: 22px;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: var(--border-strong);
+      transition: .2s;
+      border-radius: 22px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Footer */
+    footer {
+      padding: 14px 28px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .status-msg {
+      font-size: 12.5px;
+      color: var(--success);
+      font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .status-msg.error {
+      color: var(--danger);
+    }
+
+    .status-msg.show {
+      opacity: 1;
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-icon">
+          <div class="brand-icon-inner"></div>
+        </div>
+        <div class="brand-title">
+          <h1>RectangleWin Preferences</h1>
+          <p>Hotkey window snapping & management</p>
+        </div>
+      </div>
+      <div class="search-box">
+        <svg class="search-icon" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+        <input type="text" id="searchInput" class="search-input" placeholder="Search shortcuts...">
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-halves">Halves &amp; Corners</button>
+      <button class="tab-btn" data-tab="tab-thirds">Thirds &amp; Sizing</button>
+      <button class="tab-btn" data-tab="tab-screens">Displays</button>
+      <button class="tab-btn" data-tab="tab-general">Preferences</button>
+      <button class="tab-btn" data-tab="tab-about">About</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- TAB 1: Halves & Corners -->
+    <div id="tab-halves" class="tab-pane active"></div>
+
+    <!-- TAB 2: Thirds & Sizing -->
+    <div id="tab-thirds" class="tab-pane"></div>
+
+    <!-- TAB 3: Displays -->
+    <div id="tab-screens" class="tab-pane">
+      <div id="screens-actions" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+
+    <!-- TAB 4: General Preferences -->
+    <div id="tab-general" class="tab-pane">
+      <!-- Section 1: System Integration -->
+      <div class="pref-group">
+        <div class="pref-header">System Integration</div>
+        <div class="pref-row">
+          <div class="pref-label">
+            <h4>Launch on Windows Startup</h4>
+            <p>Start RectangleWin automatically in the background when you log into Windows</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkAutoRun">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Section 2: Window Snapping Behavior -->
+      <div class="pref-group">
+        <div class="pref-header">Window Snapping Behavior</div>
+        <div class="pref-row">
+          <div class="pref-label">
+            <h4>Cycle Subdivisions</h4>
+            <p>Repeatedly pressing an edge hotkey cycles ½ → ⅔ → ⅓ sizes</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkCycleSubdiv" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-label">
+            <h4>Almost Maximize Margin</h4>
+            <p>Percentage of monitor screen padding left around almost-maximized windows</p>
+          </div>
+          <div class="number-field">
+            <input type="number" id="numMargin" class="pref-input-number" min="1" max="40" value="6">
+            <span class="unit-label">%</span>
+          </div>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-label">
+            <h4>Step Resize Size</h4>
+            <p>Percentage increment when making windows larger or smaller</p>
+          </div>
+          <div class="number-field">
+            <input type="number" id="numStepResize" class="pref-input-number" min="1" max="50" value="10">
+            <span class="unit-label">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: About -->
+    <div id="tab-about" class="tab-pane">
+      <div class="pref-group" style="padding: 24px 28px;">
+        <div style="display: flex; gap: 18px; align-items: center; margin-bottom: 12px;">
+          <div class="brand-icon" style="width: 52px; height: 52px; border-radius: 10px; flex-shrink: 0; padding: 4px;">
+            <div class="brand-icon-inner" style="border-radius: 4px;"></div>
+          </div>
+          <div>
+            <h2 style="font-size: 19px; font-weight: 600; letter-spacing: -0.3px;">RectangleWin</h2>
+            <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+              Version 1.2.0 &bull; Windows 11 Modernized Edition
+            </p>
+          </div>
+        </div>
+
+        <p style="font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 8px;">
+          A lightweight, keyboard-driven window management and snapping utility for Windows 10 &amp; 11, inspired by macOS Rectangle and Spectacle.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; padding: 12px 14px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border);">
+          <div>• <strong>23 Snap Actions</strong>: Halves, corner quadrants, vertical thirds, maximize, center, and step resizes.</div>
+          <div>• <strong>Multi-Monitor Ready</strong>: Quickly move windows across displays preserving relative coordinates.</div>
+          <div>• <strong>Modern Native Architecture</strong>: Per-Monitor V2 DPI awareness, Windows Dark &amp; Light themes, and single-instance enforcement.</div>
+          <div>• <strong>Zero External Runtimes</strong>: Built entirely in pure Go with native Windows Win32 APIs.</div>
+        </div>
+
+        <div style="font-size: 12px; color: var(--text-secondary); padding-top: 12px; border-top: 1px solid var(--border); line-height: 1.6;">
+          Released under the <strong>Apache License 2.0</strong>.<br>
+          Originally created by <strong>Ahmet Alp Balkan</strong>. Inspired by macOS Rectangle by <strong>Ryan Hanson</strong>.
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 12px;">
+          <button type="button" class="btn" id="btnDocs">Documentation &amp; Guide</button>
+          <button type="button" class="btn" id="btnGitHub">GitHub Repository</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div id="statusMsg" class="status-msg">Saved and applied successfully!</div>
+    <div class="footer-actions">
+      <button id="btnDefaults" class="btn">Reset Defaults</button>
+      <button id="btnCancel" class="btn">Cancel</button>
+      <button id="btnSave" class="btn btn-primary">Save & Apply</button>
+    </div>
+  </footer>
+
+  <script>
+    const actionsData = [
+      // Tab 1: Halves & Corners
+      { id: "left_half", name: "Left Half", desc: "Snaps to left half, cycles 1/2, 2/3, 1/3", tab: "tab-halves", icon: "fill-left" },
+      { id: "right_half", name: "Right Half", desc: "Snaps to right half, cycles 1/2, 2/3, 1/3", tab: "tab-halves", icon: "fill-right" },
+      { id: "top_half", name: "Top Half", desc: "Snaps to top half, cycles 1/2, 2/3, 1/3", tab: "tab-halves", icon: "fill-top" },
+      { id: "bottom_half", name: "Bottom Half", desc: "Snaps to bottom half, cycles 1/2, 2/3, 1/3", tab: "tab-halves", icon: "fill-bottom" },
+      { id: "top_left", name: "Top Left", desc: "Snaps to top-left quadrant", tab: "tab-halves", icon: "fill-top-left" },
+      { id: "top_right", name: "Top Right", desc: "Snaps to top-right quadrant", tab: "tab-halves", icon: "fill-top-right" },
+      { id: "bottom_left", name: "Bottom Left", desc: "Snaps to bottom-left quadrant", tab: "tab-halves", icon: "fill-bottom-left" },
+      { id: "bottom_right", name: "Bottom Right", desc: "Snaps to bottom-right quadrant", tab: "tab-halves", icon: "fill-bottom-right" },
+
+      // Tab 2: Thirds & Sizing
+      { id: "first_third", name: "First Third", desc: "Snaps left vertical one-third", tab: "tab-thirds", icon: "fill-third-left" },
+      { id: "center_third", name: "Center Third", desc: "Snaps center vertical one-third", tab: "tab-thirds", icon: "fill-third-center" },
+      { id: "last_third", name: "Last Third", desc: "Snaps right vertical one-third", tab: "tab-thirds", icon: "fill-third-right" },
+      { id: "first_two_thirds", name: "First Two Thirds", desc: "Snaps left two-thirds", tab: "tab-thirds", icon: "fill-twothirds-left" },
+      { id: "last_two_thirds", name: "Last Two Thirds", desc: "Snaps right two-thirds", tab: "tab-thirds", icon: "fill-twothirds-right" },
+      { id: "maximize", name: "Maximize", desc: "Maximizes foreground window", tab: "tab-thirds", icon: "fill-max" },
+      { id: "almost_maximize", name: "Almost Maximize", desc: "Expands window leaving subtle border padding", tab: "tab-thirds", icon: "fill-almost-max" },
+      { id: "center", name: "Center Window", desc: "Centers window without resizing", tab: "tab-thirds", icon: "fill-center" },
+      { id: "restore", name: "Restore Window", desc: "Restores minimized or maximized window", tab: "tab-thirds", icon: "fill-center" },
+      { id: "minimize", name: "Minimize Window", desc: "Minimizes foreground window", tab: "tab-thirds", icon: "fill-bottom" },
+      { id: "make_larger", name: "Make Larger", desc: "Expands window dimensions by step size", tab: "tab-thirds", icon: "fill-max" },
+      { id: "make_smaller", name: "Make Smaller", desc: "Contracts window dimensions by step size", tab: "tab-thirds", icon: "fill-almost-max" },
+
+      // Tab 3: Screens
+      { id: "next_monitor", name: "Next Monitor", desc: "Moves window to next display preserving relative size", tab: "screens-actions", icon: "fill-monitor" },
+      { id: "prev_monitor", name: "Previous Monitor", desc: "Moves window to previous display", tab: "screens-actions", icon: "fill-monitor" },
+      { id: "always_on_top", name: "Always on Top", desc: "Pins window above all other windows", tab: "screens-actions", icon: "fill-center" }
+    ];
+
+    let currentConfig = {
+      bindings: {},
+      settings: { cycle_subdivisions: true, almost_maximize_margin_percent: 6, step_resize_percent: 10 }
+    };
+
+    let recordingActionId = null;
+
+    function renderCards() {
+      actionsData.forEach(action => {
+        const container = document.getElementById(action.tab);
+        if (!container) return;
+
+        const card = document.createElement("div");
+        card.className = "action-card";
+        card.id = "card-" + action.id;
+        card.innerHTML = `
+          <div class="action-left">
+            <div class="snap-preview">
+              <div class="snap-fill ${action.icon}"></div>
+            </div>
+            <div class="action-info">
+              <h3>${action.name}</h3>
+              <p>${action.desc}</p>
+            </div>
+          </div>
+          <div class="shortcut-editor">
+            <div class="mod-pills" id="mods-${action.id}">
+              <button type="button" class="pill" data-mod="Win" onclick="toggleMod('${action.id}', 'Win')">Win</button>
+              <button type="button" class="pill" data-mod="Alt" onclick="toggleMod('${action.id}', 'Alt')">Alt</button>
+              <button type="button" class="pill" data-mod="Ctrl" onclick="toggleMod('${action.id}', 'Ctrl')">Ctrl</button>
+              <button type="button" class="pill" data-mod="Shift" onclick="toggleMod('${action.id}', 'Shift')">Shift</button>
+            </div>
+            <span class="plus-sep">+</span>
+            <input type="text" class="key-input" id="key-${action.id}" placeholder="None" oninput="onKeyChange('${action.id}', this.value)">
+            <button type="button" class="btn btn-record" id="btn-rec-${action.id}" onclick="startRecord('${action.id}')">Record</button>
+            <button type="button" class="btn btn-clear" title="Clear shortcut" onclick="clearShortcut('${action.id}')">✕</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function parseComboString(comboStr) {
+      const trimmed = (comboStr || "").trim();
+      if (!trimmed || trimmed.toLowerCase() === "none" || trimmed.toLowerCase() === "disabled") {
+        return { mods: [], key: "" };
+      }
+      const parts = trimmed.split("+").map(p => p.trim());
+      const mods = [];
+      let key = "";
+      parts.forEach(p => {
+        const lower = p.toLowerCase();
+        if (lower === "win" || lower === "windows") mods.push("Win");
+        else if (lower === "alt") mods.push("Alt");
+        else if (lower === "ctrl" || lower === "control") mods.push("Ctrl");
+        else if (lower === "shift") mods.push("Shift");
+        else key = p;
+      });
+      return { mods, key };
+    }
+
+    function formatComboString(mods, key) {
+      if (!key) return "";
+      const order = ["Win", "Ctrl", "Alt", "Shift"];
+      const activeMods = order.filter(m => mods.includes(m));
+      if (!activeMods.length) return key;
+      return activeMods.join("+") + "+" + key;
+    }
+
+    function updateActionCard(actionId) {
+      const comboStr = currentConfig.bindings[actionId] || "";
+      const parsed = parseComboString(comboStr);
+
+      const modsContainer = document.getElementById("mods-" + actionId);
+      if (modsContainer) {
+        modsContainer.querySelectorAll(".pill").forEach(pill => {
+          const mod = pill.dataset.mod;
+          if (parsed.mods.includes(mod)) {
+            pill.classList.add("active");
+          } else {
+            pill.classList.remove("active");
+          }
+        });
+      }
+
+      const keyInput = document.getElementById("key-" + actionId);
+      if (keyInput) {
+        keyInput.value = parsed.key;
+      }
+    }
+
+    function toggleMod(actionId, mod) {
+      if (recordingActionId === actionId) stopRecord();
+
+      const comboStr = currentConfig.bindings[actionId] || "";
+      const parsed = parseComboString(comboStr);
+
+      const idx = parsed.mods.indexOf(mod);
+      if (idx >= 0) {
+        parsed.mods.splice(idx, 1);
+      } else {
+        parsed.mods.push(mod);
+      }
+
+      currentConfig.bindings[actionId] = formatComboString(parsed.mods, parsed.key);
+      updateActionCard(actionId);
+    }
+
+    function onKeyChange(actionId, newKey) {
+      if (recordingActionId === actionId) stopRecord();
+
+      const comboStr = currentConfig.bindings[actionId] || "";
+      const parsed = parseComboString(comboStr);
+      parsed.key = (newKey || "").trim();
+
+      currentConfig.bindings[actionId] = formatComboString(parsed.mods, parsed.key);
+      updateActionCard(actionId);
+    }
+
+    function clearShortcut(actionId) {
+      if (recordingActionId === actionId) stopRecord();
+      currentConfig.bindings[actionId] = "";
+      updateActionCard(actionId);
+      showStatus("Cleared " + actionId, false);
+    }
+
+    function populateUI(cfg) {
+      currentConfig = cfg;
+      actionsData.forEach(act => {
+        updateActionCard(act.id);
+      });
+
+      document.getElementById("chkCycleSubdiv").checked = !!cfg.settings.cycle_subdivisions;
+      document.getElementById("numMargin").value = cfg.settings.almost_maximize_margin_percent || 6;
+      document.getElementById("numStepResize").value = cfg.settings.step_resize_percent || 10;
+    }
+
+    // Tabs navigation
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.add("active");
+      });
+    });
+
+    // Search filter across all tabs
+    document.getElementById("searchInput").addEventListener("input", e => {
+      const q = e.target.value.toLowerCase().trim();
+      let firstTabWithMatch = null;
+      let currentTabHasMatch = false;
+      const currentActiveTab = document.querySelector(".tab-btn.active")?.dataset.tab;
+
+      document.querySelectorAll(".action-card").forEach(card => {
+        const text = card.textContent.toLowerCase();
+        const matches = !q || text.includes(q);
+        card.style.display = matches ? "flex" : "none";
+        if (matches && q) {
+          const parentPane = card.closest(".tab-pane");
+          if (parentPane) {
+            if (parentPane.id === currentActiveTab) {
+              currentTabHasMatch = true;
+            } else if (!firstTabWithMatch) {
+              firstTabWithMatch = parentPane.id;
+            }
+          }
+        }
+      });
+
+      if (q && !currentTabHasMatch && firstTabWithMatch) {
+        document.querySelectorAll(".tab-btn").forEach(b => {
+          if (b.dataset.tab === firstTabWithMatch) b.click();
+        });
+      }
+    });
+
+    // Recording logic
+    function startRecord(actionId) {
+      if (recordingActionId) stopRecord();
+
+      recordingActionId = actionId;
+      const card = document.getElementById("card-" + actionId);
+      const btn = document.getElementById("btn-rec-" + actionId);
+      const keyInput = document.getElementById("key-" + actionId);
+
+      card.classList.add("recording");
+      btn.classList.add("active");
+      btn.textContent = "Listening...";
+      keyInput.placeholder = "...";
+    }
+
+    function stopRecord() {
+      if (!recordingActionId) return;
+      const card = document.getElementById("card-" + recordingActionId);
+      const btn = document.getElementById("btn-rec-" + recordingActionId);
+      if (card) card.classList.remove("recording");
+      if (btn) {
+        btn.classList.remove("active");
+        btn.textContent = "Record";
+      }
+      updateActionCard(recordingActionId);
+      recordingActionId = null;
+    }
+
+    // Capture global keydown
+    window.addEventListener("keydown", e => {
+      // Prevent browser shortcuts like Alt+Left (Back)
+      if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+      }
+      if (e.key === "F5") {
+        e.preventDefault();
+      }
+
+      if (!recordingActionId) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === "Escape") {
+        if (recordingActionId) {
+          stopRecord();
+        } else if (window.closeWindow) {
+          window.closeWindow();
+        }
+        return;
+      }
+
+      if (e.key === "Backspace" || e.key === "Delete") {
+        clearShortcut(recordingActionId);
+        stopRecord();
+        return;
+      }
+
+      // Ignore pure modifier presses while user is preparing
+      if (["Shift", "Control", "Alt", "Meta"].includes(e.key)) {
+        return;
+      }
+
+      // Build key combo
+      const mods = [];
+      if (e.metaKey) mods.push("Win");
+      if (e.ctrlKey) mods.push("Ctrl");
+      if (e.altKey) mods.push("Alt");
+      if (e.shiftKey) mods.push("Shift");
+
+      let key = e.key;
+      if (key === "ArrowLeft") key = "Left";
+      else if (key === "ArrowRight") key = "Right";
+      else if (key === "ArrowUp") key = "Up";
+      else if (key === "ArrowDown") key = "Down";
+      else if (key === " ") key = "Space";
+      else if (key.length === 1) key = key.toUpperCase();
+
+      currentConfig.bindings[recordingActionId] = formatComboString(mods, key);
+      updateActionCard(recordingActionId);
+
+      const savedId = recordingActionId;
+      stopRecord();
+      showStatus(`Recorded ${currentConfig.bindings[savedId]}!`, false);
+    });
+
+    function showStatus(text, isError) {
+      const el = document.getElementById("statusMsg");
+      el.textContent = text;
+      el.className = "status-msg " + (isError ? "error" : "") + " show";
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => el.classList.remove("show"), 3500);
+    }
+
+    // Save & Apply
+    document.getElementById("btnSave").addEventListener("click", async () => {
+      currentConfig.settings.cycle_subdivisions = document.getElementById("chkCycleSubdiv").checked;
+      currentConfig.settings.almost_maximize_margin_percent = parseInt(document.getElementById("numMargin").value, 10) || 6;
+      currentConfig.settings.step_resize_percent = parseInt(document.getElementById("numStepResize").value, 10) || 10;
+
+      if (window.saveConfig) {
+        try {
+          const errs = await window.saveConfig(currentConfig);
+          if (errs && errs.length) {
+            showStatus("Validation: " + errs[0], true);
+            alert("Please fix the following issues:\n\n• " + errs.join("\n• "));
+          } else {
+            showStatus("Settings saved & hotkeys reloaded!", false);
+          }
+        } catch (err) {
+          showStatus("Error saving: " + err, true);
+        }
+      } else {
+        showStatus("Saved locally", false);
+      }
+    });
+
+    // Reset Defaults
+    document.getElementById("btnDefaults").addEventListener("click", async () => {
+      if (!confirm("Reset all shortcuts and settings to defaults?")) return;
+      if (window.resetDefaults) {
+        try {
+          const defaults = await window.resetDefaults();
+          populateUI(defaults);
+          showStatus("Reset to defaults (click Save & Apply to persist)", false);
+        } catch (err) {
+          showStatus("Error: " + err, true);
+        }
+      }
+    });
+
+    // Cancel / Close
+    document.getElementById("btnCancel").addEventListener("click", () => {
+      if (window.closeWindow) {
+        window.closeWindow();
+      }
+    });
+
+    // Launch on Startup toggle
+    document.getElementById("chkAutoRun").addEventListener("change", async e => {
+      if (window.setAutoRun) {
+        try {
+          await window.setAutoRun(e.target.checked);
+          showStatus(e.target.checked ? "Launch on startup enabled" : "Launch on startup disabled", false);
+        } catch (err) {
+          showStatus("Startup error: " + err, true);
+          e.target.checked = !e.target.checked;
+        }
+      }
+    });
+
+    // Documentation & Community links
+    document.getElementById("btnDocs").addEventListener("click", () => {
+      if (window.openExternalUrl) {
+        window.openExternalUrl("https://github.com/bigsasi/RectangleWin#readme");
+      }
+    });
+
+    document.getElementById("btnGitHub").addEventListener("click", () => {
+      if (window.openExternalUrl) {
+        window.openExternalUrl("https://github.com/bigsasi/RectangleWin");
+      }
+    });
+
+    // Initialize
+    renderCards();
+
+    async function initSettings() {
+      if (window.loadConfig) {
+        try {
+          const cfg = await window.loadConfig();
+          populateUI(cfg);
+        } catch (err) {
+          console.error("loadConfig error:", err);
+        }
+      }
+
+      if (window.getAutoRun) {
+        try {
+          const enabled = await window.getAutoRun();
+          document.getElementById("chkAutoRun").checked = !!enabled;
+        } catch (err) {
+          console.error("getAutoRun error:", err);
+        }
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initSettings);
+    } else {
+      initSettings();
+    }
+  </script>
+</body>
+</html>

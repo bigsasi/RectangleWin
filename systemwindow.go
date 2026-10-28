@@ -1,4 +1,5 @@
 // Copyright 2022 Ahmet Alp Balkan
+// Portions Copyright 2026 bigsasi
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +17,7 @@ package main
 import (
 	"strings"
 
-	"github.com/ahmetb/RectangleWin/w32ex"
+	"github.com/bigsasi/RectangleWin/w32ex"
 	"github.com/gonutz/w32/v2"
 )
 

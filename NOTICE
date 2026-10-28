@@ -1,0 +1,17 @@
+RectangleWin
+Copyright 2026 bigsasi
+
+This product is a modernized fork of RectangleWin developed by Ahmet Alp Balkan.
+Original project: https://github.com/ahmetb/RectangleWin
+Copyright 2022 Ahmet Alp Balkan
+
+This product includes or was inspired by:
+- Rectangle for macOS (https://rectangleapp.com) by Ryan Hanson (MIT License)
+- Spectacle for macOS (https://www.spectacleapp.com) by Eric Czarny (MIT License)
+
+This product includes third-party open-source software:
+- systray (https://github.com/getlantern/systray) - Apache License 2.0
+- w32 (https://github.com/gonutz/w32) - MIT License
+- go-webview2 (https://github.com/jchv/go-webview2) - MIT License
+- go-winloader (https://github.com/jchv/go-winloader) - MIT License
+- sys (https://golang.org/x/sys) - BSD 3-Clause License

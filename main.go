@@ -1,4 +1,5 @@
 // Copyright 2022 Ahmet Alp Balkan
+// Portions Copyright 2026 bigsasi
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO make it possible to "go generate" on Windows (https://github.com/josephspurrier/goversioninfo/issues/52).
-//go:generate /bin/bash -c "go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest -arm -64 -icon=assets/icon.ico - <<< '{}'"
-
 package main
 
 import (
@@ -24,48 +22,130 @@ import (
 	"os/signal"
 	"reflect"
 	"runtime"
+	"strings"
+	"sync"
+	"syscall"
 
 	"github.com/getlantern/systray"
 	"github.com/gonutz/w32/v2"
 
-	"github.com/ahmetb/RectangleWin/w32ex"
+	"github.com/bigsasi/RectangleWin/w32ex"
 )
 
-var lastResized w32.HWND
+const WM_RELOAD_HOTKEYS = 0x0400 + 100 // WM_USER + 100
+
+var (
+	mainThreadID     uint32
+	lastResized      w32.HWND
+	activeConfig     *Config
+	activeConfigLock sync.Mutex
+	activeConfigPath string
+)
+
+const singleInstanceMutexName = "Local\\RectangleWin_SingleInstance_Mutex"
 
 func main() {
-	runtime.LockOSThread() // since we bind hotkeys etc that need to dispatch their message here
-	if !w32ex.SetProcessDPIAware() {
-		panic("failed to set DPI aware")
+	runtime.LockOSThread() // Win32 hotkeys and messages require locked OS thread
+
+	showSettingsMsgID = w32ex.RegisterWindowMessage("RectangleWin_ShowSettings_Msg")
+
+	// Single instance enforcement
+	mutex, isFirst, err := w32ex.CreateMutex(singleInstanceMutexName)
+	if err != nil {
+		fmt.Printf("warn: single instance check: %v\n", err)
 	}
+	if !isFirst {
+		fmt.Println("Another instance of RectangleWin is already running. Signaling settings...")
+		w32.PostMessage(w32.HWND_BROADCAST, showSettingsMsgID, 0, 0)
+		os.Exit(0)
+	}
+	defer syscall.CloseHandle(mutex)
+
+	mainThreadID = w32ex.GetCurrentThreadId()
+
+	if !w32ex.EnableModernDPIAwareness() {
+		fmt.Println("warn: failed to set modern Per-Monitor V2 DPI awareness, fallback active")
+	}
+
+	cfg, path, err := LoadConfig()
+	if err != nil {
+		fmt.Printf("warn: error loading config: %v\n", err)
+	}
+	activeConfig = cfg
+	activeConfigPath = path
+	fmt.Printf("loaded configuration from %s\n", activeConfigPath)
 
 	autorun, err := AutoRunEnabled()
 	if err != nil {
-		panic(err)
+		fmt.Printf("warn: checking autorun: %v\n", err)
 	}
 	fmt.Printf("autorun enabled=%v\n", autorun)
-	printMonitors()
 
+	setupHotkeys(activeConfig)
+
+	exitCh := make(chan os.Signal, 1)
+	signal.Notify(exitCh, os.Interrupt)
+	go func() {
+		<-exitCh
+		fmt.Println("exit signal received")
+		systray.Quit()
+	}()
+
+	initTray()
+	if err := msgLoop(); err != nil {
+		panic(err)
+	}
+}
+
+func reloadConfig() {
+	if w32ex.GetCurrentThreadId() == mainThreadID {
+		reloadConfigInternal()
+	} else {
+		w32ex.PostThreadMessage(mainThreadID, WM_RELOAD_HOTKEYS, 0, 0)
+	}
+}
+
+func reloadConfigInternal() {
+	activeConfigLock.Lock()
+	defer activeConfigLock.Unlock()
+
+	cfg, path, err := LoadConfig()
+	if err != nil {
+		showMessageBox("Failed to load config: " + err.Error())
+		return
+	}
+	activeConfig = cfg
+	activeConfigPath = path
+
+	UnregisterAllHotKeys()
+	setupHotkeys(activeConfig)
+	fmt.Println("hotkeys successfully reloaded on main thread")
+}
+
+func setupHotkeys(cfg *Config) {
 	edgeFuncs := [][]resizeFunc{
 		{leftHalf, leftTwoThirds, leftOneThirds},
 		{rightHalf, rightTwoThirds, rightOneThirds},
 		{topHalf, topTwoThirds, topOneThirds},
-		{bottomHalf, bottomTwoThirds, bottomOneThirds}}
+		{bottomHalf, bottomTwoThirds, bottomOneThirds},
+	}
 	edgeFuncTurn := make([]int, len(edgeFuncs))
+
 	cornerFuncs := [][]resizeFunc{
 		{topLeftHalf, topLeftTwoThirds, topLeftOneThirds},
 		{topRightHalf, topRightTwoThirds, topRightOneThirds},
 		{bottomLeftHalf, bottomLeftTwoThirds, bottomLeftOneThirds},
-		{bottomRightHalf, bottomRightTwoThirds, bottomRightOneThirds}}
+		{bottomRightHalf, bottomRightTwoThirds, bottomRightOneThirds},
+	}
 	cornerFuncTurn := make([]int, len(cornerFuncs))
 
 	cycleFuncs := func(funcs [][]resizeFunc, turns *[]int, i int) {
 		hwnd := w32.GetForegroundWindow()
 		if hwnd == 0 {
-			panic("foreground window is NULL")
+			return
 		}
 		if lastResized != hwnd {
-			*turns = make([]int, len(edgeFuncs)) // reset
+			*turns = make([]int, len(funcs))
 		}
 		if _, err := resize(hwnd, funcs[i][(*turns)[i]%len(funcs[i])]); err != nil {
 			fmt.Printf("warn: resize: %v\n", err)
@@ -79,90 +159,161 @@ func main() {
 		}
 	}
 
-	cycleEdgeFuncs := func(i int) { cycleFuncs(edgeFuncs, &edgeFuncTurn, i) }
-	cycleCornerFuncs := func(i int) { cycleFuncs(cornerFuncs, &cornerFuncTurn, i) }
+	cycleEdge := func(i int) {
+		if !cfg.Settings.CycleSubdivisions {
+			hwnd := w32.GetForegroundWindow()
+			if hwnd != 0 {
+				_, _ = resize(hwnd, edgeFuncs[i][0])
+			}
+			return
+		}
+		cycleFuncs(edgeFuncs, &edgeFuncTurn, i)
+	}
 
-	hks := []HotKey{
-		(HotKey{id: 1, mod: MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_LEFT, callback: func() { cycleEdgeFuncs(0) }}),
-		(HotKey{id: 2, mod: MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_RIGHT, callback: func() { cycleEdgeFuncs(1) }}),
-		(HotKey{id: 3, mod: MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_UP, callback: func() { cycleEdgeFuncs(2) }}),
-		(HotKey{id: 4, mod: MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_DOWN, callback: func() { cycleEdgeFuncs(3) }}),
-		(HotKey{id: 5, mod: MOD_CONTROL | MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_LEFT, callback: func() { cycleCornerFuncs(0) }}),
-		(HotKey{id: 6, mod: MOD_CONTROL | MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_UP, callback: func() { cycleCornerFuncs(1) }}),
-		(HotKey{id: 7, mod: MOD_CONTROL | MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_DOWN, callback: func() { cycleCornerFuncs(2) }}),
-		(HotKey{id: 8, mod: MOD_CONTROL | MOD_ALT | MOD_WIN | MOD_NOREPEAT, vk: w32.VK_RIGHT, callback: func() { cycleCornerFuncs(3) }}),
-		(HotKey{id: 50, mod: MOD_SHIFT | MOD_WIN, vk: 0x46 /*F*/, callback: func() {
-			lastResized = 0 // cause edgeFuncTurn to be reset
+	cycleCorner := func(i int) {
+		if !cfg.Settings.CycleSubdivisions {
+			hwnd := w32.GetForegroundWindow()
+			if hwnd != 0 {
+				_, _ = resize(hwnd, cornerFuncs[i][0])
+			}
+			return
+		}
+		cycleFuncs(cornerFuncs, &cornerFuncTurn, i)
+	}
+
+	directSnap := func(f resizeFunc) {
+		hwnd := w32.GetForegroundWindow()
+		if hwnd != 0 {
+			lastResized = 0
+			_, _ = resize(hwnd, f)
+		}
+	}
+
+	type actionDef struct {
+		id       int
+		keyStr   string
+		callback func()
+	}
+
+	b := cfg.Bindings
+	actions := []actionDef{
+		// Halves & Cycling
+		{1, b.LeftHalf, func() { cycleEdge(0) }},
+		{2, b.RightHalf, func() { cycleEdge(1) }},
+		{3, b.TopHalf, func() { cycleEdge(2) }},
+		{4, b.BottomHalf, func() { cycleEdge(3) }},
+
+		// Corners & Cycling
+		{5, b.TopLeft, func() { cycleCorner(0) }},
+		{6, b.TopRight, func() { cycleCorner(1) }},
+		{7, b.BottomLeft, func() { cycleCorner(2) }},
+		{8, b.BottomRight, func() { cycleCorner(3) }},
+
+		// Direct Thirds
+		{9, b.FirstThird, func() { directSnap(leftOneThirds) }},
+		{10, b.CenterThird, func() { directSnap(centerThird) }},
+		{11, b.LastThird, func() { directSnap(rightOneThirds) }},
+		{12, b.FirstTwoThirds, func() { directSnap(leftTwoThirds) }},
+		{13, b.LastTwoThirds, func() { directSnap(rightTwoThirds) }},
+
+		// Sizing & Placement
+		{14, b.Maximize, func() {
+			lastResized = 0
 			if err := maximize(); err != nil {
 				fmt.Printf("warn: maximize: %v\n", err)
-				return
 			}
-		}}),
-		(HotKey{id: 60, mod: MOD_ALT | MOD_WIN, vk: 0x43 /*C*/, callback: func() {
-			lastResized = 0 // cause edgeFuncTurn to be reset
-			if _, err := resize(w32.GetForegroundWindow(), center); err != nil {
-				fmt.Printf("warn: resize: %v\n", err)
-				return
+		}},
+		{15, b.AlmostMaximize, func() { directSnap(almostMaximize) }},
+		{16, b.Center, func() { directSnap(center) }},
+		{17, b.Restore, func() {
+			hwnd := w32.GetForegroundWindow()
+			if isZonableWindow(hwnd) {
+				w32.ShowWindow(hwnd, w32.SW_RESTORE)
 			}
-		}}),
-		(HotKey{id: 70, mod: MOD_ALT | MOD_WIN, vk: 0x41 /*A*/, callback: func() {
+		}},
+		{18, b.Minimize, func() {
+			hwnd := w32.GetForegroundWindow()
+			if isZonableWindow(hwnd) {
+				w32.ShowWindow(hwnd, w32.SW_MINIMIZE)
+			}
+		}},
+		{19, b.MakeLarger, func() { directSnap(makeLarger) }},
+		{20, b.MakeSmaller, func() { directSnap(makeSmaller) }},
+
+		// Multi-Monitor & State
+		{21, b.NextMonitor, func() {
+			hwnd := w32.GetForegroundWindow()
+			if err := MoveWindowToMonitor(hwnd, true); err != nil {
+				fmt.Printf("warn: move to next monitor: %v\n", err)
+			}
+		}},
+		{22, b.PrevMonitor, func() {
+			hwnd := w32.GetForegroundWindow()
+			if err := MoveWindowToMonitor(hwnd, false); err != nil {
+				fmt.Printf("warn: move to prev monitor: %v\n", err)
+			}
+		}},
+		{23, b.AlwaysOnTop, func() {
 			hwnd := w32.GetForegroundWindow()
 			if err := toggleAlwaysOnTop(hwnd); err != nil {
 				fmt.Printf("warn: toggleAlwaysOnTop: %v\n", err)
 				return
 			}
 			fmt.Printf("> toggled always on top: %v\n", hwnd)
-		}}),
+		}},
 	}
 
 	var failedHotKeys []HotKey
-	for _, hk := range hks {
+	for _, act := range actions {
+		if strings.TrimSpace(act.keyStr) == "" {
+			continue
+		}
+		mod, vk, err := ParseKeyCombo(act.keyStr)
+		if err != nil {
+			fmt.Printf("warn: invalid key combo %q for action %d: %v\n", act.keyStr, act.id, err)
+			continue
+		}
+		if vk == 0 {
+			continue
+		}
+
+		hk := HotKey{
+			id:       act.id,
+			mod:      mod,
+			vk:       vk,
+			callback: act.callback,
+		}
+
 		if !RegisterHotKey(hk) {
 			failedHotKeys = append(failedHotKeys, hk)
 		}
 	}
+
 	if len(failedHotKeys) > 0 {
 		msg := "The following hotkey(s) are in use by another process:\n\n"
 		for _, hk := range failedHotKeys {
 			msg += "  - " + hk.Describe() + "\n"
 		}
-		msg += "\nTo use these hotkeys in RectangleWin, close the other process using the key combination(s)."
+		msg += "\nTo use these hotkeys, rebind them in config.json or close the conflicting application."
 		showMessageBox(msg)
-	}
-
-	exitCh := make(chan os.Signal)
-	signal.Notify(exitCh, os.Interrupt)
-	go func() {
-		<-exitCh
-		fmt.Println("exit signal received")
-		systray.Quit() // causes WM_CLOSE, WM_QUIT, not sure if a side-effect
-	}()
-
-	// TODO systray/systray.go already locks the OS thread in init()
-	// however it's not clear if GetMessage(0,0) will continue to work
-	// as we run "go initTray()" and not pin the thread that initializes the
-	// tray.
-	initTray()
-	if err := msgLoop(); err != nil {
-		panic(err)
 	}
 }
 
 func showMessageBox(text string) {
-	w32.MessageBox(w32.GetActiveWindow(), text, "RectangleWin", w32.MB_ICONWARNING|w32.MB_OK)
+	w32.MessageBox(w32.GetActiveWindow(), text, "RectangleWin", w32.MB_ICONINFORMATION|w32.MB_OK)
 }
 
 type resizeFunc func(disp, cur w32.RECT) w32.RECT
 
 func center(disp, cur w32.RECT) w32.RECT {
-	// TODO find a way to round up divisions consistently as it causes multiple runs to shift by 1px
 	w := (disp.Width() - cur.Width()) / 2
 	h := (disp.Height() - cur.Height()) / 2
 	return w32.RECT{
 		Left:   disp.Left + w,
 		Right:  disp.Left + w + cur.Width(),
 		Top:    disp.Top + h,
-		Bottom: disp.Top + h + cur.Height()}
+		Bottom: disp.Top + h + cur.Height(),
+	}
 }
 
 func resize(hwnd w32.HWND, f resizeFunc) (bool, error) {
@@ -189,11 +340,7 @@ func resize(hwnd w32.HWND, f resizeFunc) (bool, error) {
 	windowDPI := w32ex.GetDpiForWindow(hwnd)
 	resizedFrame := resizeForDpi(frame, int32(windowDPI), int32(displayDPI))
 
-	fmt.Printf("> window: 0x%x %#v (w:%d,h:%d) mon=0x%X(@ display DPI:%d)\n", hwnd, rect, rect.Width(), rect.Height(), mon, displayDPI)
-	fmt.Printf("> DWM frame:        %#v (W:%d,H:%d) @ window DPI=%v\n", frame, frame.Width(), frame.Height(), windowDPI)
-	fmt.Printf("> DPI-less frame:   %#v (W:%d,H:%d)\n", resizedFrame, resizedFrame.Width(), resizedFrame.Height())
-
-	// calculate how many extra pixels go to win10 invisible borders
+	// calculate how many extra pixels go to win10/11 invisible borders
 	lExtra := resizedFrame.Left - rect.Left
 	rExtra := -resizedFrame.Right + rect.Right
 	tExtra := resizedFrame.Top - rect.Top
@@ -209,19 +356,15 @@ func resize(hwnd w32.HWND, f resizeFunc) (bool, error) {
 
 	lastResized = hwnd
 	if sameRect(rect, &newPos) {
-		fmt.Println("no resize")
 		return false, nil
 	}
 
-	fmt.Printf("> resizing to: %#v (W:%d,H:%d)\n", newPos, newPos.Width(), newPos.Height())
-	if !w32.ShowWindow(hwnd, w32.SW_SHOWNORMAL) { // normalize window first if it's set to SW_SHOWMAXIMIZE (and therefore stays maximized)
+	if !w32.ShowWindow(hwnd, w32.SW_SHOWNORMAL) {
 		return false, fmt.Errorf("failed to normalize window ShowWindow:%d", w32.GetLastError())
 	}
 	if !w32.SetWindowPos(hwnd, 0, int(newPos.Left), int(newPos.Top), int(newPos.Width()), int(newPos.Height()), w32.SWP_NOZORDER|w32.SWP_NOACTIVATE) {
 		return false, fmt.Errorf("failed to SetWindowPos:%d", w32.GetLastError())
 	}
-	rect = w32.GetWindowRect(hwnd)
-	fmt.Printf("> post-resize: %#v(W:%d,H:%d)\n", rect, rect.Width(), rect.Height())
 	return true, nil
 }
 

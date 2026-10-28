@@ -1,185 +1,287 @@
+// Copyright 2022 Ahmet Alp Balkan
+// Portions Copyright 2026 bigsasi
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
+import (
+	"fmt"
+	"strings"
+
+	"github.com/gonutz/w32/v2"
+)
+
+// Win32 HotKey Modifiers
 // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registerhotkey
 const (
 	MOD_ALT      = 0x0001
 	MOD_CONTROL  = 0x0002
-	MOD_NOREPEAT = 0x4000
 	MOD_SHIFT    = 0x0004
 	MOD_WIN      = 0x0008
+	MOD_NOREPEAT = 0x4000
 )
 
 var modKeyNames = map[int]string{
-	MOD_ALT:     "Alt",
-	MOD_CONTROL: "Ctrl",
-	MOD_SHIFT:   "Shift",
 	MOD_WIN:     "Win",
+	MOD_CONTROL: "Ctrl",
+	MOD_ALT:     "Alt",
+	MOD_SHIFT:   "Shift",
 }
 
-// https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-var keyNames = map[int]string{
-	0x01: `Left mouse button`,
-	0x02: `Right mouse button`,
-	0x03: `Control-break processing`,
-	0x04: `Middle mouse button (three-button mouse)`,
-	0x05: `X1 mouse button`,
-	0x06: `X2 mouse button`,
-	0x08: `BACKSPACE key`,
-	0x09: `TAB key`,
-	0x0C: `CLEAR key`,
-	0x0D: `ENTER key`,
-	0x10: `SHIFT key`,
-	0x11: `CTRL key`,
-	0x12: `ALT key`,
-	0x13: `PAUSE key`,
-	0x14: `CAPS LOCK key`,
-	0x15: `IME Kana mode`,
-	0x16: `IME On`,
-	0x17: `IME Junja mode`,
-	0x18: `IME final mode`,
-	0x19: `IME Hanja mode`,
-	0x1A: `IME Off`,
-	0x1B: `ESC key`,
-	0x1C: `IME convert`,
-	0x1D: `IME nonconvert`,
-	0x1E: `IME accept`,
-	0x1F: `IME mode change request`,
-	0x20: `SPACEBAR`,
-	0x21: `PAGE UP key`,
-	0x22: `PAGE DOWN key`,
-	0x23: `END key`,
-	0x24: `HOME key`,
-	0x25: `LEFT ARROW key`,
-	0x26: `UP ARROW key`,
-	0x27: `RIGHT ARROW key`,
-	0x28: `DOWN ARROW key`,
-	0x29: `SELECT key`,
-	0x2A: `PRINT key`,
-	0x2B: `EXECUTE key`,
-	0x2C: `PRINT SCREEN key`,
-	0x2D: `INS key`,
-	0x2E: `DEL key`,
-	0x2F: `HELP key`,
-	0x30: `0 key`,
-	0x31: `1 key`,
-	0x32: `2 key`,
-	0x33: `3 key`,
-	0x34: `4 key`,
-	0x35: `5 key`,
-	0x36: `6 key`,
-	0x37: `7 key`,
-	0x38: `8 key`,
-	0x39: `9 key`,
-	0x41: `A key`,
-	0x42: `B key`,
-	0x43: `C key`,
-	0x44: `D key`,
-	0x45: `E key`,
-	0x46: `F key`,
-	0x47: `G key`,
-	0x48: `H key`,
-	0x49: `I key`,
-	0x4A: `J key`,
-	0x4B: `K key`,
-	0x4C: `L key`,
-	0x4D: `M key`,
-	0x4E: `N key`,
-	0x4F: `O key`,
-	0x50: `P key`,
-	0x51: `Q key`,
-	0x52: `R key`,
-	0x53: `S key`,
-	0x54: `T key`,
-	0x55: `U key`,
-	0x56: `V key`,
-	0x57: `W key`,
-	0x58: `X key`,
-	0x59: `Y key`,
-	0x5A: `Z key`,
-	0x5B: `Left Windows key (Natural keyboard)`,
-	0x5C: `Right Windows key (Natural keyboard)`,
-	0x5D: `Applications key (Natural keyboard)`,
-	0x5F: `Computer Sleep key`,
-	0x60: `Numeric keypad 0 key`,
-	0x61: `Numeric keypad 1 key`,
-	0x62: `Numeric keypad 2 key`,
-	0x63: `Numeric keypad 3 key`,
-	0x64: `Numeric keypad 4 key`,
-	0x65: `Numeric keypad 5 key`,
-	0x66: `Numeric keypad 6 key`,
-	0x67: `Numeric keypad 7 key`,
-	0x68: `Numeric keypad 8 key`,
-	0x69: `Numeric keypad 9 key`,
-	0x6A: `Multiply key`,
-	0x6B: `Add key`,
-	0x6C: `Separator key`,
-	0x6D: `Subtract key`,
-	0x6E: `Decimal key`,
-	0x6F: `Divide key`,
-	0x70: `F1 key`,
-	0x71: `F2 key`,
-	0x72: `F3 key`,
-	0x73: `F4 key`,
-	0x74: `F5 key`,
-	0x75: `F6 key`,
-	0x76: `F7 key`,
-	0x77: `F8 key`,
-	0x78: `F9 key`,
-	0x79: `F10 key`,
-	0x7A: `F11 key`,
-	0x7B: `F12 key`,
-	0x7C: `F13 key`,
-	0x7D: `F14 key`,
-	0x7E: `F15 key`,
-	0x7F: `F16 key`,
-	0x80: `F17 key`,
-	0x81: `F18 key`,
-	0x82: `F19 key`,
-	0x83: `F20 key`,
-	0x84: `F21 key`,
-	0x85: `F22 key`,
-	0x86: `F23 key`,
-	0x87: `F24 key`,
-	0x90: `NUM LOCK key`,
-	0x91: `SCROLL LOCK key`,
-	0xA0: `Left SHIFT key`,
-	0xA1: `Right SHIFT key`,
-	0xA2: `Left CONTROL key`,
-	0xA3: `Right CONTROL key`,
-	0xA4: `Left MENU key`,
-	0xA5: `Right MENU key`,
-	0xA6: `Browser Back key`,
-	0xA7: `Browser Forward key`,
-	0xA8: `Browser Refresh key`,
-	0xA9: `Browser Stop key`,
-	0xAA: `Browser Search key`,
-	0xAB: `Browser Favorites key`,
-	0xAC: `Browser Start and Home key`,
-	0xAD: `Volume Mute key`,
-	0xAE: `Volume Down key`,
-	0xAF: `Volume Up key`,
-	0xB0: `Next Track key`,
-	0xB1: `Previous Track key`,
-	0xB2: `Stop Media key`,
-	0xB3: `Play/Pause Media key`,
-	0xB4: `Start Mail key`,
-	0xB5: `Select Media key`,
-	0xB6: `Start Application 1 key`,
-	0xB7: `Start Application 2 key`,
-	0xBB: `For any country/region, the '+' key`,
-	0xBC: `For any country/region, the ',' key`,
-	0xBD: `For any country/region, the '-' key`,
-	0xBE: `For any country/region, the '.' key`,
-	0xE2: `Either the angle bracket key or the backslash key on the RT 102-key keyboard`,
-	0xE5: `IME PROCESS key`,
-	0xE6: `OEM specific`,
-	0xE7: `Used to pass Unicode characters as if they were keystrokes. The VK_PACKET key is the low word of a 32-bit Virtual Key value used for non-keyboard input methods. For more information, see Remark in KEYBDINPUT, SendInput, WM_KEYDOWN, and WM_KEYUP`,
-	0xF6: `Attn key`,
-	0xF7: `CrSel key`,
-	0xF8: `ExSel key`,
-	0xF9: `Erase EOF key`,
-	0xFA: `Play key`,
-	0xFB: `Zoom key`,
-	0xFD: `PA1 key`,
-	0xFE: `Clear key`,
+// namedVKs maps normalized lowercase string aliases to virtual key codes
+var namedVKs = map[string]int{
+	// Navigation & Editing
+	"left":        w32.VK_LEFT,
+	"right":       w32.VK_RIGHT,
+	"up":          w32.VK_UP,
+	"down":        w32.VK_DOWN,
+	"enter":       w32.VK_RETURN,
+	"return":      w32.VK_RETURN,
+	"space":       w32.VK_SPACE,
+	"spacebar":    w32.VK_SPACE,
+	"tab":         w32.VK_TAB,
+	"backspace":   w32.VK_BACK,
+	"esc":         w32.VK_ESCAPE,
+	"escape":      w32.VK_ESCAPE,
+	"delete":      w32.VK_DELETE,
+	"del":         w32.VK_DELETE,
+	"insert":      w32.VK_INSERT,
+	"ins":         w32.VK_INSERT,
+	"home":        w32.VK_HOME,
+	"end":         w32.VK_END,
+	"pageup":      w32.VK_PRIOR,
+	"pgup":        w32.VK_PRIOR,
+	"pagedown":    w32.VK_NEXT,
+	"pgdn":        w32.VK_NEXT,
+	"pgdown":      w32.VK_NEXT,
+	"capslock":    w32.VK_CAPITAL,
+	"printscreen": w32.VK_SNAPSHOT,
+	"prtsc":       w32.VK_SNAPSHOT,
+	"pause":       w32.VK_PAUSE,
+
+	// Common symbols
+	"plus":         0xBB, // VK_OEM_PLUS
+	"+":            0xBB,
+	"minus":        0xBD, // VK_OEM_MINUS
+	"-":            0xBD,
+	"equal":        0xBB,
+	"=":            0xBB,
+	"comma":        0xBC, // VK_OEM_COMMA
+	",":            0xBC,
+	"period":       0xBE, // VK_OEM_PERIOD
+	".":            0xBE,
+	"slash":        0xBF, // VK_OEM_2 (/?)
+	"/":            0xBF,
+	"backslash":    0xDC, // VK_OEM_5 (\|)
+	"\\":           0xDC,
+	"semicolon":    0xBA, // VK_OEM_1 (;:)
+	";":            0xBA,
+	"quote":        0xDE, // VK_OEM_7 ('")
+	"'":            0xDE,
+	"bracketleft":  0xDB, // VK_OEM_4 ([{)
+	"[":            0xDB,
+	"bracketright": 0xDD, // VK_OEM_6 (]})
+	"]":            0xDD,
+	"backquote":    0xC0, // VK_OEM_3 (`~)
+	"`":            0xC0,
+
+	// Numpad
+	"numpad0":     w32.VK_NUMPAD0,
+	"numpad1":     w32.VK_NUMPAD1,
+	"numpad2":     w32.VK_NUMPAD2,
+	"numpad3":     w32.VK_NUMPAD3,
+	"numpad4":     w32.VK_NUMPAD4,
+	"numpad5":     w32.VK_NUMPAD5,
+	"numpad6":     w32.VK_NUMPAD6,
+	"numpad7":     w32.VK_NUMPAD7,
+	"numpad8":     w32.VK_NUMPAD8,
+	"numpad9":     w32.VK_NUMPAD9,
+	"num0":        w32.VK_NUMPAD0,
+	"num1":        w32.VK_NUMPAD1,
+	"num2":        w32.VK_NUMPAD2,
+	"num3":        w32.VK_NUMPAD3,
+	"num4":        w32.VK_NUMPAD4,
+	"num5":        w32.VK_NUMPAD5,
+	"num6":        w32.VK_NUMPAD6,
+	"num7":        w32.VK_NUMPAD7,
+	"num8":        w32.VK_NUMPAD8,
+	"num9":        w32.VK_NUMPAD9,
+	"numadd":      w32.VK_ADD,
+	"numsubtract": w32.VK_SUBTRACT,
+	"nummultiply": w32.VK_MULTIPLY,
+	"numdivide":   w32.VK_DIVIDE,
+	"numdecimal":  w32.VK_DECIMAL,
+}
+
+func init() {
+	// Add A-Z
+	for ch := 'a'; ch <= 'z'; ch++ {
+		namedVKs[string(ch)] = int('A' + (ch - 'a'))
+	}
+	// Add 0-9
+	for ch := '0'; ch <= '9'; ch++ {
+		namedVKs[string(ch)] = int(ch)
+	}
+	// Add F1 - F24
+	for i := 1; i <= 24; i++ {
+		namedVKs[fmt.Sprintf("f%d", i)] = w32.VK_F1 + (i - 1)
+	}
+}
+
+// ParseKeyCombo parses a string like "Win+Alt+Left" or "Ctrl+Shift+F" into mod and vk.
+// Returns mod=0, vk=0, err=nil if combo is empty or disabled ("none", "disabled", "").
+func ParseKeyCombo(comboStr string) (int, int, error) {
+	trimmed := strings.TrimSpace(comboStr)
+	if trimmed == "" || strings.EqualFold(trimmed, "none") || strings.EqualFold(trimmed, "disabled") {
+		return 0, 0, nil
+	}
+
+	parts := strings.Split(trimmed, "+")
+	var mod int
+	var vk int
+	var keyFound bool
+
+	for _, part := range parts {
+		token := strings.ToLower(strings.TrimSpace(part))
+		if token == "" {
+			continue
+		}
+
+		switch token {
+		case "win", "windows", "super", "cmd":
+			mod |= MOD_WIN
+		case "ctrl", "control":
+			mod |= MOD_CONTROL
+		case "alt", "option", "opt":
+			mod |= MOD_ALT
+		case "shift":
+			mod |= MOD_SHIFT
+		default:
+			if keyFound {
+				return 0, 0, fmt.Errorf("multiple non-modifier keys specified in '%s'", comboStr)
+			}
+			code, ok := namedVKs[token]
+			if !ok {
+				return 0, 0, fmt.Errorf("unrecognized key '%s' in '%s'", part, comboStr)
+			}
+			vk = code
+			keyFound = true
+		}
+	}
+
+	if !keyFound {
+		return 0, 0, fmt.Errorf("no primary key specified in combo '%s'", comboStr)
+	}
+
+	// Always add MOD_NOREPEAT to avoid repeat key spamming
+	mod |= MOD_NOREPEAT
+
+	return mod, vk, nil
+}
+
+// FormatKeyCombo formats mod and vk into a clean canonical string like "Win + Alt + Left"
+func FormatKeyCombo(mod, vk int) string {
+	if vk == 0 {
+		return "Disabled"
+	}
+	var out []string
+	if mod&MOD_WIN != 0 {
+		out = append(out, "Win")
+	}
+	if mod&MOD_CONTROL != 0 {
+		out = append(out, "Ctrl")
+	}
+	if mod&MOD_ALT != 0 {
+		out = append(out, "Alt")
+	}
+	if mod&MOD_SHIFT != 0 {
+		out = append(out, "Shift")
+	}
+
+	keyName := getKeyDisplayName(vk)
+	out = append(out, keyName)
+	return strings.Join(out, " + ")
+}
+
+func getKeyDisplayName(vk int) string {
+	if vk >= 'A' && vk <= 'Z' {
+		return string(rune(vk))
+	}
+	if vk >= '0' && vk <= '9' {
+		return string(rune(vk))
+	}
+	if vk >= w32.VK_F1 && vk <= w32.VK_F24 {
+		return fmt.Sprintf("F%d", vk-w32.VK_F1+1)
+	}
+	if vk >= w32.VK_NUMPAD0 && vk <= w32.VK_NUMPAD9 {
+		return fmt.Sprintf("Numpad%d", vk-w32.VK_NUMPAD0)
+	}
+
+	switch vk {
+	case w32.VK_LEFT:
+		return "Left"
+	case w32.VK_RIGHT:
+		return "Right"
+	case w32.VK_UP:
+		return "Up"
+	case w32.VK_DOWN:
+		return "Down"
+	case w32.VK_RETURN:
+		return "Enter"
+	case w32.VK_SPACE:
+		return "Space"
+	case w32.VK_TAB:
+		return "Tab"
+	case w32.VK_BACK:
+		return "Backspace"
+	case w32.VK_ESCAPE:
+		return "Esc"
+	case w32.VK_DELETE:
+		return "Delete"
+	case w32.VK_INSERT:
+		return "Insert"
+	case w32.VK_HOME:
+		return "Home"
+	case w32.VK_END:
+		return "End"
+	case w32.VK_PRIOR:
+		return "PageUp"
+	case w32.VK_NEXT:
+		return "PageDown"
+	case 0xBB:
+		return "+"
+	case 0xBD:
+		return "-"
+	case 0xBC:
+		return ","
+	case 0xBE:
+		return "."
+	case 0xBF:
+		return "/"
+	case 0xDC:
+		return "\\"
+	case 0xBA:
+		return ";"
+	case 0xDE:
+		return "'"
+	case 0xDB:
+		return "["
+	case 0xDD:
+		return "]"
+	case 0xC0:
+		return "`"
+	default:
+		return fmt.Sprintf("Key(0x%X)", vk)
+	}
 }
