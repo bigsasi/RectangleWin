@@ -68,6 +68,11 @@ func UnregisterHotKey(hwnd w32.HWND, id int) bool {
 	return r1 != 0
 }
 
+func IsZoomed(hwnd w32.HWND) bool {
+	r1, _, _ := user32.NewProc("IsZoomed").Call(uintptr(hwnd))
+	return r1 != 0
+}
+
 func EnableModernDPIAwareness() bool {
 	// Try SetProcessDpiAwarenessContext (Per-Monitor v2) first (Windows 10 1703+)
 	procSetContext := user32.NewProc("SetProcessDpiAwarenessContext")
@@ -76,6 +81,16 @@ func EnableModernDPIAwareness() bool {
 		v2Context := ^uintptr(3)
 		r1, _, _ := procSetContext.Call(v2Context)
 		if r1 != 0 {
+			return true
+		}
+	}
+
+	// Fallback to SetProcessDpiAwareness (Per-Monitor v1, Windows 8.1+)
+	procSetAwareness := shcore.NewProc("SetProcessDpiAwareness")
+	if procSetAwareness.Find() == nil {
+		const processPerMonitorDpiAware = 2
+		r1, _, _ := procSetAwareness.Call(processPerMonitorDpiAware)
+		if r1 == 0 {
 			return true
 		}
 	}
@@ -93,6 +108,7 @@ var (
 	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 	gdi32    = syscall.NewLazyDLL("gdi32.dll")
 	comctl32 = syscall.NewLazyDLL("comctl32.dll")
+	shcore   = syscall.NewLazyDLL("shcore.dll")
 )
 
 func GetCurrentThreadId() uint32 {

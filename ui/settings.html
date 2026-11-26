@@ -544,6 +544,40 @@
       display: flex;
       gap: 10px;
     }
+
+    /* Update Banner */
+    .update-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--accent);
+      background: var(--surface);
+    }
+
+    .update-banner.show {
+      display: flex;
+    }
+
+    .update-banner-text h4 {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .update-banner-text p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .update-banner-actions {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -574,6 +608,17 @@
   </header>
 
   <main>
+    <div id="updateBanner" class="update-banner">
+      <div class="update-banner-text">
+        <h4 id="updateBannerTitle">Update available</h4>
+        <p id="updateBannerDesc">A newer version of RectangleWin is ready to install.</p>
+      </div>
+      <div class="update-banner-actions">
+        <button type="button" class="btn" id="btnViewRelease">Release Notes</button>
+        <button type="button" class="btn btn-primary" id="btnInstallUpdate">Install &amp; Restart</button>
+      </div>
+    </div>
+
     <!-- TAB 1: Halves & Corners -->
     <div id="tab-halves" class="tab-pane active"></div>
 
@@ -599,6 +644,25 @@
             <input type="checkbox" id="chkAutoRun">
             <span class="slider"></span>
           </label>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-label">
+            <h4>Automatically Check for Updates</h4>
+            <p>Check GitHub Releases on startup and prompt when a new version is available</p>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkAutoUpdate" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="pref-row">
+          <div class="pref-label">
+            <h4>Software Updates</h4>
+            <p id="updateCheckStatus">Check GitHub for the latest release of RectangleWin</p>
+          </div>
+          <button type="button" class="btn" id="btnCheckUpdates">Check for Updates</button>
         </div>
       </div>
 
@@ -650,7 +714,7 @@
           <div>
             <h2 style="font-size: 19px; font-weight: 600; letter-spacing: -0.3px;">RectangleWin</h2>
             <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
-              Version 1.2.0 &bull; Windows 11 Modernized Edition
+              Version <span id="appVersion">dev</span> &bull; Windows 11 Modernized Edition
             </p>
           </div>
         </div>
@@ -672,6 +736,7 @@
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 12px;">
+          <button type="button" class="btn" id="btnCheckUpdatesAbout">Check for Updates</button>
           <button type="button" class="btn" id="btnDocs">Documentation &amp; Guide</button>
           <button type="button" class="btn" id="btnGitHub">GitHub Repository</button>
         </div>
@@ -853,6 +918,7 @@
       });
 
       document.getElementById("chkCycleSubdiv").checked = !!cfg.settings.cycle_subdivisions;
+      document.getElementById("chkAutoUpdate").checked = cfg.settings.auto_check_updates !== false;
       document.getElementById("numMargin").value = cfg.settings.almost_maximize_margin_percent || 6;
       document.getElementById("numStepResize").value = cfg.settings.step_resize_percent || 10;
     }
@@ -994,6 +1060,7 @@
     // Save & Apply
     document.getElementById("btnSave").addEventListener("click", async () => {
       currentConfig.settings.cycle_subdivisions = document.getElementById("chkCycleSubdiv").checked;
+      currentConfig.settings.auto_check_updates = document.getElementById("chkAutoUpdate").checked;
       currentConfig.settings.almost_maximize_margin_percent = parseInt(document.getElementById("numMargin").value, 10) || 6;
       currentConfig.settings.step_resize_percent = parseInt(document.getElementById("numStepResize").value, 10) || 10;
 
@@ -1048,6 +1115,81 @@
       }
     });
 
+    // GitHub Auto-Updates
+    let pendingUpdate = null;
+
+    function showUpdateBanner(info) {
+      if (!info || !info.available) return;
+      pendingUpdate = info;
+      document.getElementById("updateBannerTitle").textContent = `RectangleWin ${info.latest_version} is available`;
+      document.getElementById("updateBannerDesc").textContent =
+        `You are currently running ${info.current_version}. Install now to update and restart automatically.`;
+      document.getElementById("btnInstallUpdate").style.display = info.download_url ? "inline-flex" : "none";
+      document.getElementById("btnViewRelease").style.display = info.release_url ? "inline-flex" : "none";
+      document.getElementById("updateBanner").classList.add("show");
+    }
+
+    async function runUpdateCheck(triggerBtn) {
+      if (!window.checkForUpdates) return;
+      const statusEl = document.getElementById("updateCheckStatus");
+      const origText = triggerBtn ? triggerBtn.textContent : "";
+      if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.textContent = "Checking...";
+      }
+      if (statusEl) statusEl.textContent = "Checking GitHub Releases...";
+
+      try {
+        const info = await window.checkForUpdates();
+        if (info && info.available) {
+          showUpdateBanner(info);
+          if (statusEl) statusEl.textContent = `Update available: ${info.latest_version}`;
+          showStatus(`Update ${info.latest_version} is available!`, false);
+        } else if (info && info.is_dev_build) {
+          const msg = info.latest_version
+            ? `Running development build (latest release: ${info.latest_version})`
+            : "Running development build";
+          if (statusEl) statusEl.textContent = msg;
+          showStatus(msg, false);
+        } else {
+          if (statusEl) statusEl.textContent = `You're up to date (${info ? info.current_version : ""})`;
+          showStatus("RectangleWin is up to date!", false);
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = "Update check failed: " + err;
+        showStatus("Update check failed: " + err, true);
+      } finally {
+        if (triggerBtn) {
+          triggerBtn.disabled = false;
+          triggerBtn.textContent = origText;
+        }
+      }
+    }
+
+    document.getElementById("btnCheckUpdates").addEventListener("click", e => runUpdateCheck(e.currentTarget));
+    document.getElementById("btnCheckUpdatesAbout").addEventListener("click", e => runUpdateCheck(e.currentTarget));
+
+    document.getElementById("btnViewRelease").addEventListener("click", () => {
+      if (pendingUpdate && pendingUpdate.release_url && window.openExternalUrl) {
+        window.openExternalUrl(pendingUpdate.release_url);
+      }
+    });
+
+    document.getElementById("btnInstallUpdate").addEventListener("click", async e => {
+      if (!pendingUpdate || !window.installUpdate) return;
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      btn.textContent = "Downloading...";
+      showStatus("Downloading and verifying update...", false);
+      try {
+        await window.installUpdate(pendingUpdate);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = "Install & Restart";
+        showStatus("Update failed: " + err, true);
+      }
+    });
+
     // Documentation & Community links
     document.getElementById("btnDocs").addEventListener("click", () => {
       if (window.openExternalUrl) {
@@ -1080,6 +1222,26 @@
           document.getElementById("chkAutoRun").checked = !!enabled;
         } catch (err) {
           console.error("getAutoRun error:", err);
+        }
+      }
+
+      if (window.getVersion) {
+        try {
+          const v = await window.getVersion();
+          if (v) document.getElementById("appVersion").textContent = v;
+        } catch (err) {
+          console.error("getVersion error:", err);
+        }
+      }
+
+      if (window.getCachedUpdate) {
+        try {
+          const cached = await window.getCachedUpdate();
+          if (cached && cached.available) {
+            showUpdateBanner(cached);
+          }
+        } catch (err) {
+          console.error("getCachedUpdate error:", err);
         }
       }
     }

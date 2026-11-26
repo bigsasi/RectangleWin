@@ -66,6 +66,7 @@ type SettingsConfig struct {
 	CycleSubdivisions           bool `json:"cycle_subdivisions"`
 	AlmostMaximizeMarginPercent int  `json:"almost_maximize_margin_percent"`
 	StepResizePercent           int  `json:"step_resize_percent"`
+	AutoCheckUpdates            bool `json:"auto_check_updates"`
 }
 
 func DefaultConfig() Config {
@@ -99,6 +100,7 @@ func DefaultConfig() Config {
 			CycleSubdivisions:           true,
 			AlmostMaximizeMarginPercent: 6,
 			StepResizePercent:           10,
+			AutoCheckUpdates:            true,
 		},
 	}
 }

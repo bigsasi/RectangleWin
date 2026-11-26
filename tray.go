@@ -44,6 +44,13 @@ func onReady() {
 		}
 	}()
 
+	mUpdate := systray.AddMenuItem("Check for Updates...", "Check GitHub for a newer version of RectangleWin")
+	go func() {
+		for range mUpdate.ClickedCh {
+			CheckForUpdatesInteractive()
+		}
+	}()
+
 	systray.AddSeparator()
 
 	mDocs := systray.AddMenuItem("Documentation", "View documentation and keyboard shortcuts guide")

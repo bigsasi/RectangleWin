@@ -38,9 +38,9 @@ func TestParseKeyCombo(t *testing.T) {
 		{"", 0, 0, false},
 		{"none", 0, 0, false},
 		{"disabled", 0, 0, false},
-		{"Win+Alt", 0, 0, true},             // missing key
-		{"Win+Alt+Left+Right", 0, 0, true},   // multiple keys
-		{"Win+Alt+InvalidKey", 0, 0, true},   // invalid key
+		{"Win+Alt", 0, 0, true},            // missing key
+		{"Win+Alt+Left+Right", 0, 0, true}, // multiple keys
+		{"Win+Alt+InvalidKey", 0, 0, true}, // invalid key
 	}
 
 	for _, tt := range tests {

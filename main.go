@@ -35,17 +35,34 @@ import (
 const WM_RELOAD_HOTKEYS = 0x0400 + 100 // WM_USER + 100
 
 var (
-	mainThreadID     uint32
-	lastResized      w32.HWND
-	activeConfig     *Config
-	activeConfigLock sync.Mutex
-	activeConfigPath string
+	mainThreadID            uint32
+	lastResized             w32.HWND
+	activeConfig            *Config
+	activeConfigLock        sync.Mutex
+	activeConfigPath        string
+	singleInstanceMutex     syscall.Handle
+	singleInstanceMutexLock sync.Mutex
 )
 
 const singleInstanceMutexName = "Local\\RectangleWin_SingleInstance_Mutex"
 
+func releaseSingleInstanceMutex() {
+	singleInstanceMutexLock.Lock()
+	defer singleInstanceMutexLock.Unlock()
+	if singleInstanceMutex != 0 {
+		_ = syscall.CloseHandle(singleInstanceMutex)
+		singleInstanceMutex = 0
+	}
+}
+
 func main() {
 	runtime.LockOSThread() // Win32 hotkeys and messages require locked OS thread
+
+	// Enable Per-Monitor V2 DPI awareness before any user32 calls so all
+	// window/monitor coordinates across screens share the same physical pixel space.
+	if !w32ex.EnableModernDPIAwareness() {
+		fmt.Println("warn: failed to set modern Per-Monitor V2 DPI awareness, fallback active")
+	}
 
 	showSettingsMsgID = w32ex.RegisterWindowMessage("RectangleWin_ShowSettings_Msg")
 
@@ -59,13 +76,14 @@ func main() {
 		w32.PostMessage(w32.HWND_BROADCAST, showSettingsMsgID, 0, 0)
 		os.Exit(0)
 	}
-	defer syscall.CloseHandle(mutex)
+	singleInstanceMutexLock.Lock()
+	singleInstanceMutex = mutex
+	singleInstanceMutexLock.Unlock()
+	defer releaseSingleInstanceMutex()
+
+	CleanupOldBinary()
 
 	mainThreadID = w32ex.GetCurrentThreadId()
-
-	if !w32ex.EnableModernDPIAwareness() {
-		fmt.Println("warn: failed to set modern Per-Monitor V2 DPI awareness, fallback active")
-	}
 
 	cfg, path, err := LoadConfig()
 	if err != nil {
@@ -92,6 +110,7 @@ func main() {
 	}()
 
 	initTray()
+	CheckForUpdatesOnStartup()
 	if err := msgLoop(); err != nil {
 		panic(err)
 	}
@@ -316,54 +335,106 @@ func center(disp, cur w32.RECT) w32.RECT {
 	}
 }
 
+// windowBorderOffsets returns the invisible Win10/11 border widths (left, top, right, bottom)
+// between the full window rect (GetWindowRect) and the visible frame (DWMWA_EXTENDED_FRAME_BOUNDS).
+func windowBorderOffsets(winRect, visibleFrame w32.RECT) (left, top, right, bottom int32) {
+	return visibleFrame.Left - winRect.Left,
+		visibleFrame.Top - winRect.Top,
+		winRect.Right - visibleFrame.Right,
+		winRect.Bottom - visibleFrame.Bottom
+}
+
+// expandRectForBorders expands a target visible rect outward by the invisible window borders
+// so that the visible frame aligns with targetVisible.
+func expandRectForBorders(targetVisible w32.RECT, left, top, right, bottom int32) w32.RECT {
+	return w32.RECT{
+		Left:   targetVisible.Left - left,
+		Top:    targetVisible.Top - top,
+		Right:  targetVisible.Right + right,
+		Bottom: targetVisible.Bottom + bottom,
+	}
+}
+
+func getWindowFrame(hwnd w32.HWND, fallback w32.RECT) w32.RECT {
+	if ok, frame := w32.DwmGetWindowAttributeEXTENDED_FRAME_BOUNDS(hwnd); ok {
+		return frame
+	}
+	return fallback
+}
+
+// setWindowVisibleRect positions hwnd so its visible DWM frame matches targetVisible.
+// Under Per-Monitor V2 DPI awareness, GetWindowRect, DWMWA_EXTENDED_FRAME_BOUNDS,
+// GetMonitorInfo, and SetWindowPos all use physical virtual-screen pixels.
+// If moving the window changes its monitor DPI (triggering WM_DPICHANGED in the target app),
+// it re-measures the new invisible borders and re-applies SetWindowPos.
+func setWindowVisibleRect(hwnd w32.HWND, targetVisible w32.RECT) error {
+	dpiBefore := w32ex.GetDpiForWindow(hwnd)
+
+	apply := func() error {
+		winRect := w32.GetWindowRect(hwnd)
+		if winRect == nil {
+			return fmt.Errorf("failed to GetWindowRect:%d", w32.GetLastError())
+		}
+		frame := getWindowFrame(hwnd, *winRect)
+		lExtra, tExtra, rExtra, bExtra := windowBorderOffsets(*winRect, frame)
+		pos := expandRectForBorders(targetVisible, lExtra, tExtra, rExtra, bExtra)
+		if !w32.SetWindowPos(hwnd, 0, int(pos.Left), int(pos.Top), int(pos.Width()), int(pos.Height()), w32.SWP_NOZORDER|w32.SWP_NOACTIVATE) {
+			return fmt.Errorf("failed to SetWindowPos:%d", w32.GetLastError())
+		}
+		return nil
+	}
+
+	if err := apply(); err != nil {
+		return err
+	}
+
+	dpiAfter := w32ex.GetDpiForWindow(hwnd)
+	if dpiBefore != 0 && dpiAfter != 0 && dpiAfter != dpiBefore {
+		if err := apply(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func resize(hwnd w32.HWND, f resizeFunc) (bool, error) {
 	if !isZonableWindow(hwnd) {
 		fmt.Printf("warn: non-zonable window: %s\n", w32.GetWindowText(hwnd))
 		return false, nil
 	}
-	rect := w32.GetWindowRect(hwnd)
+
+	// Capture the current monitor BEFORE unmaximizing so a maximized window on a
+	// secondary monitor stays on that monitor even if its restored placement was elsewhere.
 	mon := w32.MonitorFromWindow(hwnd, w32.MONITOR_DEFAULTTONEAREST)
-	hdc := w32.GetDC(hwnd)
-	displayDPI := w32.GetDeviceCaps(hdc, w32.LOGPIXELSY)
-	if !w32.ReleaseDC(hwnd, hdc) {
-		return false, fmt.Errorf("failed to ReleaseDC:%d", w32.GetLastError())
-	}
 	var monInfo w32.MONITORINFO
 	if !w32.GetMonitorInfo(mon, &monInfo) {
 		return false, fmt.Errorf("failed to GetMonitorInfo:%d", w32.GetLastError())
 	}
 
-	ok, frame := w32.DwmGetWindowAttributeEXTENDED_FRAME_BOUNDS(hwnd)
-	if !ok {
-		return false, fmt.Errorf("failed to DwmGetWindowAttributeEXTENDED_FRAME_BOUNDS:%d", w32.GetLastError())
+	wasZoomed := w32ex.IsZoomed(hwnd)
+	if wasZoomed {
+		w32.ShowWindow(hwnd, w32.SW_SHOWNORMAL)
 	}
-	windowDPI := w32ex.GetDpiForWindow(hwnd)
-	resizedFrame := resizeForDpi(frame, int32(windowDPI), int32(displayDPI))
 
-	// calculate how many extra pixels go to win10/11 invisible borders
-	lExtra := resizedFrame.Left - rect.Left
-	rExtra := -resizedFrame.Right + rect.Right
-	tExtra := resizedFrame.Top - rect.Top
-	bExtra := -resizedFrame.Bottom + rect.Bottom
+	rect := w32.GetWindowRect(hwnd)
+	if rect == nil {
+		return false, fmt.Errorf("failed to GetWindowRect:%d", w32.GetLastError())
+	}
+	frame := getWindowFrame(hwnd, *rect)
 
-	newPos := f(monInfo.RcWork, resizedFrame)
-
-	// adjust offsets based on invisible borders
-	newPos.Left -= lExtra
-	newPos.Top -= tExtra
-	newPos.Right += rExtra
-	newPos.Bottom += bExtra
+	// Under Per-Monitor V2 DPI awareness, monInfo.RcWork, rect, and frame are all in
+	// physical virtual-screen pixels across every monitor.
+	newVisible := f(monInfo.RcWork, frame)
+	lExtra, tExtra, rExtra, bExtra := windowBorderOffsets(*rect, frame)
+	newPos := expandRectForBorders(newVisible, lExtra, tExtra, rExtra, bExtra)
 
 	lastResized = hwnd
-	if sameRect(rect, &newPos) {
+	if !wasZoomed && sameRect(rect, &newPos) {
 		return false, nil
 	}
 
-	if !w32.ShowWindow(hwnd, w32.SW_SHOWNORMAL) {
-		return false, fmt.Errorf("failed to normalize window ShowWindow:%d", w32.GetLastError())
-	}
-	if !w32.SetWindowPos(hwnd, 0, int(newPos.Left), int(newPos.Top), int(newPos.Width()), int(newPos.Height()), w32.SWP_NOZORDER|w32.SWP_NOACTIVATE) {
-		return false, fmt.Errorf("failed to SetWindowPos:%d", w32.GetLastError())
+	if err := setWindowVisibleRect(hwnd, newVisible); err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -394,15 +465,6 @@ func toggleAlwaysOnTop(hwnd w32.HWND) error {
 		}
 	}
 	return nil
-}
-
-func resizeForDpi(src w32.RECT, from, to int32) w32.RECT {
-	return w32.RECT{
-		Left:   src.Left * to / from,
-		Right:  src.Right * to / from,
-		Top:    src.Top * to / from,
-		Bottom: src.Bottom * to / from,
-	}
 }
 
 func sameRect(a, b *w32.RECT) bool {

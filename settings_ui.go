@@ -146,6 +146,23 @@ func runSettingsWindow() {
 		return w32.ShellExecute(0, "open", url, "", "", w32.SW_SHOWNORMAL)
 	})
 
+	// Version & GitHub Auto-Updates
+	w.Bind("getVersion", func() string {
+		return GetVersion()
+	})
+
+	w.Bind("getCachedUpdate", func() *UpdateInfo {
+		return GetCachedUpdate()
+	})
+
+	w.Bind("checkForUpdates", func() (*UpdateInfo, error) {
+		return CheckForUpdates()
+	})
+
+	w.Bind("installUpdate", func(info UpdateInfo) error {
+		return ApplyUpdate(&info)
+	})
+
 	w.SetHtml(settingsHTML)
 	w.Run()
 }
